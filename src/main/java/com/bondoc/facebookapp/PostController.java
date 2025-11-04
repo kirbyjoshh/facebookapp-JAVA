@@ -3,60 +3,69 @@ package com.bondoc.facebookapp;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/posts")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173") // <--- Allow requests from your frontend
 public class PostController {
 
-    private final PostRepository postRepository;
+    private final PostRepository repo;
 
-    public PostController(PostRepository postRepository) {
-        this.postRepository = postRepository;
+    public PostController(PostRepository repo) {
+        this.repo = repo;
     }
 
-    // Create
+    // Create a post
     @PostMapping
     public ResponseEntity<Post> createPost(@RequestBody Post post) {
-        post.setId(null); // ensure client can't set id
-        Post saved = postRepository.save(post);
-        return new ResponseEntity<>(saved, HttpStatus.CREATED);
+        Post saved = repo.save(post);
+        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
 
-    // Read all
+    // Get all posts
     @GetMapping
     public List<Post> getAllPosts() {
-        return postRepository.findAll();
+        return repo.findAll();
     }
 
-    // Read one
+    // Get one post
     @GetMapping("/{id}")
-    public ResponseEntity<Post> getPostById(@PathVariable Long id) {
-        return postRepository.findById(id)
-                .map(p -> ResponseEntity.ok(p))
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public Post getPost(@PathVariable Long id) {
+        return repo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
     }
 
-    // Update
+    // Update a post (replace)
     @PutMapping("/{id}")
-    public ResponseEntity<Post> updatePost(@PathVariable Long id, @RequestBody Post incoming) {
-        return postRepository.findById(id).map(existing -> {
-            existing.setAuthor(incoming.getAuthor());
-            existing.setContent(incoming.getContent());
-            existing.setImageUrl(incoming.getImageUrl());
-            Post saved = postRepository.save(existing);
-            return ResponseEntity.ok(saved);
-        }).orElseGet(() -> ResponseEntity.notFound().build());
+    public Post updatePost(@PathVariable Long id, @RequestBody Post updated) {
+        return repo.findById(id).map(p -> {
+            p.setAuthor(updated.getAuthor());
+            p.setContent(updated.getContent());
+            p.setImageUrl(updated.getImageUrl());
+            return repo.save(p);
+        }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
     }
 
-    // DeleteS
+    // Partial update (PATCH)
+    @PatchMapping("/{id}")
+    public Post patchPost(@PathVariable Long id, @RequestBody Post partial) {
+        return repo.findById(id).map(p -> {
+            if (partial.getAuthor() != null) p.setAuthor(partial.getAuthor());
+            if (partial.getContent() != null) p.setContent(partial.getContent());
+            if (partial.getImageUrl() != null) p.setImageUrl(partial.getImageUrl());
+            return repo.save(p);
+        }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+    }
+
+    // Delete
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePost(@PathVariable Long id) {
-        return postRepository.findById(id).map(p -> {
-            postRepository.deleteById(id);
-            return new ResponseEntity<Void>(HttpStatus.NO_CONTENT);
-        }).orElseGet(() -> ResponseEntity.notFound().build());
+        return repo.findById(id).map(p -> {
+            repo.deleteById(id);
+            return ResponseEntity.noContent().<Void>build();
+        }).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
     }
 }

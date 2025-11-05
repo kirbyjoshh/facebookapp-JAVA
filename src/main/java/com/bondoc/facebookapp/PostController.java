@@ -9,7 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/posts")
-@CrossOrigin(origins = "http://localhost:5173") // <--- Allow requests from your frontend
+@CrossOrigin(origins = {"http://localhost:5173", "https://facebookapp-react.onrender.com"})
 public class PostController {
 
     private final PostRepository repo;
